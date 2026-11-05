@@ -1,0 +1,10 @@
+# Levanta el backend-api. Si el frontend y backend-realtime viven en repos aparte,
+# el compose "de todo" puede agregar esos servicios apuntando a sus carpetas.
+services:
+  backend-api:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    restart: unless-stopped

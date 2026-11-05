@@ -147,3 +147,15 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Credenciales de Firebase (NUNCA subir)
+*serviceAccount*.json
+*service-account*.json
+*firebase-adminsdk*.json
+firebase-key*.json
+*.pem
+
+# Sistema y editores
+.DS_Store
+.vscode/
+.idea/
