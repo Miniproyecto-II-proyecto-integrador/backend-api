@@ -3,11 +3,9 @@ import express from "express";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env";
 import { openapi } from "./docs/openapi";
-import {
-  manejadorErrores,
-  rutaNoEncontrada,
-} from "./middlewares/errorHandler";
+import { manejadorErrores, rutaNoEncontrada } from "./middlewares/errorHandler";
 import { healthDataRouter } from "./routes/healthData.routes";
+import { usersRouter } from "./routes/users.routes";
 
 export const app = express();
 
@@ -15,7 +13,7 @@ app.use(
   cors({
     // Si no se configuró ningún origen, no se abre a todo el mundo.
     origin: env.corsOrigins.length > 0 ? env.corsOrigins : false,
-  })
+  }),
 );
 app.use(express.json());
 
@@ -29,3 +27,6 @@ app.use("/api", healthDataRouter);
 
 app.use(rutaNoEncontrada);
 app.use(manejadorErrores);
+
+app.use("/api", healthDataRouter);
+app.use("/api", usersRouter);
