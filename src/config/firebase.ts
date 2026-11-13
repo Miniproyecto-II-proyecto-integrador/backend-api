@@ -1,4 +1,5 @@
 import { App, cert, getApp, getApps, initializeApp } from "firebase-admin/app";
+import { Auth, getAuth } from "firebase-admin/auth";
 import { Firestore, getFirestore } from "firebase-admin/firestore";
 import { env } from "./env";
 
@@ -8,10 +9,17 @@ import { env } from "./env";
  * Se hace de forma perezosa para que la API arranque aunque falte la variable
  * y responda un error claro en lugar de caerse.
  */
+
+function obtenerApp(): App {
+  return getApps().length > 0 ? getApp() : inicializar();
+}
+
 export function obtenerFirestore(): Firestore {
-  const app: App =
-    getApps().length > 0 ? getApp() : inicializar();
-  return getFirestore(app);
+  return getFirestore(obtenerApp());
+}
+
+export function obtenerAuth(): Auth {
+  return getAuth(obtenerApp());
 }
 
 function inicializar(): App {
