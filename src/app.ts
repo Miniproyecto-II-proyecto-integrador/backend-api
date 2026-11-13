@@ -25,8 +25,8 @@ app.get("/health", (_req, res) => {
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
 app.use("/api", healthDataRouter);
 
-app.use(rutaNoEncontrada);
-app.use(manejadorErrores);
-
 app.use("/api", healthDataRouter);
 app.use("/api", usersRouter);
+
+app.use(rutaNoEncontrada);
+app.use(manejadorErrores);
