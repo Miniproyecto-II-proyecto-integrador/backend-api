@@ -6,6 +6,8 @@
  */
 export type CodigoError =
   | "FIRESTORE_NO_DISPONIBLE"
+  | "FIREBASE_AUTH_NO_DISPONIBLE"
+  | "CORREO_NO_SINCRONIZADO"
   | "DATO_NO_ENCONTRADO"
   | "RUTA_NO_ENCONTRADA"
   | "ORIGEN_NO_PERMITIDO"
@@ -39,6 +41,20 @@ export const Errores = {
       "FIRESTORE_NO_DISPONIBLE",
       "No pudimos cargar la información en este momento.",
       "Intenta de nuevo en unos segundos.",
+    ),
+  firebaseAuthNoDisponible: () =>
+    new AppError(
+      503,
+      "FIREBASE_AUTH_NO_DISPONIBLE",
+      "No pudimos actualizar tu correo en este momento.",
+      "Intenta de nuevo en unos segundos.",
+    ),
+  correoNoSincronizado: () =>
+    new AppError(
+      503,
+      "CORREO_NO_SINCRONIZADO",
+      "No se pudo completar el cambio y el correo podría no estar sincronizado.",
+      "Inicia sesión de nuevo y contacta al equipo si el problema continúa.",
     ),
   datoNoEncontrado: () =>
     new AppError(
