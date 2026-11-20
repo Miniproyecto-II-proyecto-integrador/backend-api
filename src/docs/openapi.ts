@@ -217,6 +217,45 @@ export const openapi = {
           "503": err("Firestore no responde"),
         },
       },
+      patch: {
+        summary: "Actualiza el perfil de la sesión actual",
+        description:
+          "Acepta uno o más campos de perfil. El UID se obtiene exclusivamente del ID token. Si cambia el correo, se actualizan Firebase Authentication y Firestore.",
+        tags: ["Usuarios"],
+        security: seguridad,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                minProperties: 1,
+                properties: {
+                  nombres: { type: "string", example: "Ana María" },
+                  apellidos: { type: "string", example: "Pérez Gómez" },
+                  username: { type: "string", example: "ana_perez" },
+                  email: { type: "string", format: "email", example: "ana@ejemplo.com" },
+                  avatar: { type: "string", example: "avatar-2" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Perfil actualizado",
+            content: { "application/json": { schema: perfilSchema } },
+          },
+          "400": err("Datos inválidos o no se envió ningún campo"),
+          "401": err("Sin token o token inválido/vencido"),
+          "404": err("Aún no existe el perfil"),
+          "409": err("Username o correo ya en uso"),
+          "503": err(
+            "Firestore o Firebase Authentication no disponibles, o correo no sincronizado",
+          ),
+        },
+      },
     },
   },
 };

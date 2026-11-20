@@ -3,6 +3,7 @@ import { requiereAuth } from "../middlewares/auth";
 import {
   consultarUsername,
   crearPerfil,
+  actualizarMiPerfil,
   obtenerMiPerfil,
 } from "../services/users.service";
 
@@ -42,6 +43,19 @@ usersRouter.get(
     try {
       const perfil = await obtenerMiPerfil(req.usuario!.uid);
       res.set("Cache-Control", "no-store");
+      res.status(200).json(perfil);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+usersRouter.patch(
+  "/users/me",
+  requiereAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const perfil = await actualizarMiPerfil(req.usuario!, req.body);
       res.status(200).json(perfil);
     } catch (error) {
       next(error);

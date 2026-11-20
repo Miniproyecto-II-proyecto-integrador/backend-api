@@ -40,6 +40,33 @@ export const perfilGoogleSchema = z.object({
   username: usernameSchema,
 });
 
+const emailSchema = z
+  .string({
+    error: (problema) =>
+      problema.input === undefined
+        ? "Escribe un correo electrónico."
+        : "El correo electrónico debe ser texto.",
+  })
+  .trim()
+  .email("Escribe un correo electrónico válido.")
+  .max(254, "El correo electrónico no puede superar 254 caracteres.")
+  .transform((email) => email.toLowerCase());
+
+/** Actualización parcial: UID y cualquier otro campo no están permitidos. */
+export const actualizarPerfilSchema = z
+  .object({
+    nombres: texto("Los nombres", 60).optional(),
+    apellidos: texto("Los apellidos", 60).optional(),
+    username: usernameSchema.optional(),
+    email: emailSchema.optional(),
+    avatar: texto("El avatar", 300).optional(),
+  })
+  .strict()
+  .refine((datos) => Object.keys(datos).length > 0, {
+    message: "Envía al menos un campo para actualizar.",
+    path: ["general"],
+  });
+
 /** Consulta de disponibilidad: ?username= */
 export const consultaUsernameSchema = z.object({
   username: usernameSchema,

@@ -70,6 +70,7 @@ Todos los errores usan el formato `{ "error": { "codigo", "mensaje", "sugerencia
 | GET    | `/api/users/username-disponible?username=` | No   | Aviso temprano de si un username está libre (el servidor lo revalida al crear)         | 200, 400, 503           |
 | POST   | `/api/users`                               | Sí   | Crear el perfil del usuario autenticado (registro manual y con Google)                 | 201, 400, 401, 409, 503 |
 | GET    | `/api/users/me`                            | Sí   | Leer el perfil de la sesión actual; 404 si un usuario de Google aún no eligió username | 200, 401, 404, 503      |
+| PATCH  | `/api/users/me`                            | Sí   | Actualizar parcialmente nombres, apellidos, username, correo y avatar                   | 200, 400, 401, 404, 409, 503 |
 
 ### Códigos de error
 
@@ -82,6 +83,14 @@ Todos los errores usan el formato `{ "error": { "codigo", "mensaje", "sugerencia
 | 409  | `CORREO_YA_REGISTRADO`    | Ese correo ya tiene un perfil                                            |
 | 409  | `PERFIL_YA_EXISTE`        | Este usuario ya tenía su perfil creado                                   |
 | 503  | `FIRESTORE_NO_DISPONIBLE` | Firestore no respondió                                                   |
+| 503  | `FIREBASE_AUTH_NO_DISPONIBLE` | Firebase Authentication no pudo actualizar el correo                |
+| 503  | `CORREO_NO_SINCRONIZADO`  | Falló la compensación de un cambio de correo entre Auth y Firestore       |
+
+`PATCH /api/users/me` acepta uno o más campos JSON (`nombres`, `apellidos`,
+`username`, `email`, `avatar`). No acepta un UID; el usuario se determina por
+el ID token verificado. El cambio de username y la actualización del perfil se
+confirman en una transacción. Si cambia el correo, también se actualiza Firebase
+Authentication; si Firestore falla, la API intenta revertir el cambio de Auth.
 
 ### Variables de entorno
 
