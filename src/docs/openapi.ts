@@ -251,40 +251,12 @@ export const openapi = {
                   nombres: { type: "string", example: "Ana María" },
                   apellidos: { type: "string", example: "Pérez Gómez" },
                   username: { type: "string", example: "ana_perez" },
-                  email: { type: "string", format: "email", example: "ana@ejemplo.com" },
-                  avatar: { type: "string", example: "avatar-2" },
-                },
-              },
-              delete: {
-                summary: "Elimina la cuenta de la sesión actual",
-                description:
-                  "El UID se obtiene exclusivamente del token verificado. Elimina las salas propias con sus descendientes, libera índices y perfil, y elimina Firebase Authentication al final. Los mensajes de salas ajenas se conservarán anonimizados cuando esa funcionalidad exista.",
-                tags: ["Usuarios"],
-                security: seguridad,
-                responses: {
-                  "200": {
-                    description: "Cuenta eliminada",
-                    content: {
-                      "application/json": {
-                        schema: {
-                          type: "object",
-                          required: ["eliminada", "mensaje"],
-                          properties: {
-                            eliminada: { type: "boolean", example: true },
-                            mensaje: {
-                              type: "string",
-                              example:
-                                "Tu cuenta y sus datos asociados se eliminaron correctamente.",
-                            },
-                          },
-                        },
-                      },
-                    },
+                  email: {
+                    type: "string",
+                    format: "email",
+                    example: "ana@ejemplo.com",
                   },
-                  "401": err("Sin token o token inválido/vencido"),
-                  "503": err(
-                    "La eliminación quedó pendiente; parte de los datos pudo haberse eliminado",
-                  ),
+                  avatar: { type: "string", example: "avatar-2" },
                 },
               },
             },
@@ -301,6 +273,38 @@ export const openapi = {
           "409": err("Username o correo ya en uso"),
           "503": err(
             "Firestore o Firebase Authentication no disponibles, o correo no sincronizado",
+          ),
+        },
+      },
+      delete: {
+        summary: "Elimina la cuenta de la sesión actual",
+        description:
+          "El UID se obtiene exclusivamente del token verificado. Elimina las salas propias con sus descendientes, libera los índices de usuario y elimina el perfil de Firestore y la cuenta de Firebase Authentication. Los mensajes de salas ajenas se conservan anonimizados.",
+        tags: ["Usuarios"],
+        security: seguridad,
+        responses: {
+          "200": {
+            description: "Cuenta eliminada",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["eliminada", "mensaje"],
+                  properties: {
+                    eliminada: { type: "boolean", example: true },
+                    mensaje: {
+                      type: "string",
+                      example:
+                        "Tu cuenta y sus datos asociados se eliminaron correctamente.",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": err("Sin token o token inválido/vencido"),
+          "503": err(
+            "La eliminación quedó pendiente; parte de los datos pudo haberse eliminado",
           ),
         },
       },
