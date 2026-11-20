@@ -122,6 +122,9 @@ marcador para permitir un reintento; no vuelve a eliminar datos de otros UID.
 La política acordada elimina las salas propias con todos sus descendientes y
 conserva los mensajes del usuario en salas ajenas, anonimizando `senderUid` y
 `senderName` antes de eliminar el perfil y la cuenta de Firebase Authentication.
+La limpieza recorre las salas por páginas y consulta cada subcolección
+`messages` por separado, por lo que no depende de un índice de colección
+agrupada de Firestore.
 
 ### Variables de entorno
 
