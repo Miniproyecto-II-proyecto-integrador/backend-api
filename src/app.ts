@@ -5,6 +5,7 @@ import { env } from "./config/env";
 import { openapi } from "./docs/openapi";
 import { manejadorErrores, rutaNoEncontrada } from "./middlewares/errorHandler";
 import { healthDataRouter } from "./routes/healthData.routes";
+import { roomsRouter } from "./routes/rooms.routes";
 import { usersRouter } from "./routes/users.routes";
 
 export const app = express();
@@ -27,6 +28,7 @@ app.use("/api", healthDataRouter);
 
 app.use("/api", healthDataRouter);
 app.use("/api", usersRouter);
+app.use("/api", roomsRouter);
 
 app.use(rutaNoEncontrada);
 app.use(manejadorErrores);

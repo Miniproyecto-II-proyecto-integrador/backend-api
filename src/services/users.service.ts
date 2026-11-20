@@ -14,8 +14,8 @@ import {
   actualizarPerfilSchema,
   perfilGoogleSchema,
   perfilManualSchema,
-  validar,
 } from "../validators/users.schemas";
+import { validar } from "../validators/validation";
 
 export type PerfilRespuesta = PerfilUsuario & { uid: string };
 

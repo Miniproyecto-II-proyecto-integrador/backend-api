@@ -66,6 +66,22 @@ export const openapi = {
         description: "ID token de Firebase Authentication",
       },
     },
+    schemas: {
+      Sala: {
+        type: "object",
+        required: ["id", "nombre", "ownerUid", "createdAt"],
+        properties: {
+          id: { type: "string", example: "a1b2c3d4" },
+          nombre: { type: "string", example: "Taller de Álgebra Lineal" },
+          ownerUid: { type: "string", example: "firebase-uid" },
+          createdAt: {
+            type: "string",
+            format: "date-time",
+            example: "2026-11-20T05:00:00.000Z",
+          },
+        },
+      },
+    },
   },
 
   paths: {
@@ -254,6 +270,71 @@ export const openapi = {
           "503": err(
             "Firestore o Firebase Authentication no disponibles, o correo no sincronizado",
           ),
+        },
+      },
+    },
+    "/api/rooms": {
+      post: {
+        summary: "Crea una sala propia",
+        description:
+          "El ownerUid se obtiene del ID token verificado; no se acepta desde el cuerpo.",
+        tags: ["Salas"],
+        security: seguridad,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["nombre"],
+                properties: {
+                  nombre: {
+                    type: "string",
+                    minLength: 1,
+                    maxLength: 50,
+                    example: "Taller de Álgebra Lineal",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Sala creada",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Sala" },
+              },
+            },
+          },
+          "400": err("Nombre vacío, demasiado largo o campos no permitidos"),
+          "401": err("Sin token o token inválido/vencido"),
+          "503": err("Firestore no responde"),
+        },
+      },
+      get: {
+        summary: "Lista las salas propias",
+        description:
+          "Devuelve solo las salas cuyo ownerUid coincide con el UID del ID token, ordenadas de más reciente a más antigua.",
+        tags: ["Salas"],
+        security: seguridad,
+        responses: {
+          "200": {
+            description: "Lista de salas; puede estar vacía",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Sala" },
+                  example: [],
+                },
+              },
+            },
+          },
+          "401": err("Sin token o token inválido/vencido"),
+          "503": err("Firestore no responde"),
         },
       },
     },
