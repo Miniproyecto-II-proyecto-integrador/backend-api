@@ -1,4 +1,8 @@
-import { Timestamp } from "firebase-admin/firestore";
+import {
+  FieldPath,
+  QueryDocumentSnapshot,
+  Timestamp,
+} from "firebase-admin/firestore";
 import { obtenerFirestore } from "../config/firebase";
 import { AppError, Errores } from "../errors/AppError";
 
@@ -218,25 +222,35 @@ export async function eliminarDatosCuenta(uid: string): Promise<void> {
       await db.recursiveDelete(sala.ref);
     }
 
-    let mensajes = await db
-      .collectionGroup("messages")
-      .where("senderUid", "==", uid)
-      .limit(400)
-      .get();
-    while (!mensajes.empty) {
-      const batch = db.batch();
-      for (const mensaje of mensajes.docs) {
-        batch.update(mensaje.ref, {
-          senderUid: null,
-          senderName: "Usuario eliminado",
-        });
+    let cursor: QueryDocumentSnapshot | undefined;
+    while (true) {
+      let consultaSalas = db
+        .collection(ROOMS)
+        .orderBy(FieldPath.documentId())
+        .limit(100);
+      if (cursor) consultaSalas = consultaSalas.startAfter(cursor);
+
+      const salasRestantes = await consultaSalas.get();
+      for (const sala of salasRestantes.docs) {
+        const consultaMensajes = sala.ref
+          .collection("messages")
+          .where("senderUid", "==", uid);
+        let mensajes = await consultaMensajes.limit(400).get();
+        while (!mensajes.empty) {
+          const batch = db.batch();
+          for (const mensaje of mensajes.docs) {
+            batch.update(mensaje.ref, {
+              senderUid: null,
+              senderName: "Usuario eliminado",
+            });
+          }
+          await batch.commit();
+          mensajes = await consultaMensajes.limit(400).get();
+        }
       }
-      await batch.commit();
-      mensajes = await db
-        .collectionGroup("messages")
-        .where("senderUid", "==", uid)
-        .limit(400)
-        .get();
+
+      if (salasRestantes.size < 100) break;
+      cursor = salasRestantes.docs[salasRestantes.docs.length - 1];
     }
 
     for (const coleccion of [USERNAMES, EMAILS]) {
