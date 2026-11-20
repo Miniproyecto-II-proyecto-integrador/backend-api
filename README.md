@@ -72,6 +72,24 @@ Todos los errores usan el formato `{ "error": { "codigo", "mensaje", "sugerencia
 | GET    | `/api/users/me`                            | Sí   | Leer el perfil de la sesión actual; 404 si un usuario de Google aún no eligió username | 200, 401, 404, 503      |
 | PATCH  | `/api/users/me`                            | Sí   | Actualizar parcialmente nombres, apellidos, username, correo y avatar                   | 200, 400, 401, 404, 409, 503 |
 
+## Endpoints de salas (US-06)
+
+| Método | Ruta          | Auth | Para qué sirve                                  | Respuestas |
+| ------ | ------------- | ---- | ----------------------------------------------- | ---------- |
+| POST   | `/api/rooms`  | Sí   | Crear una sala propia                           | 201, 400, 401, 503 |
+| GET    | `/api/rooms`  | Sí   | Listar únicamente las salas propias, recientes primero | 200, 401, 503 |
+
+`POST /api/rooms` recibe `{ "nombre": "Taller de Álgebra" }`. El nombre se
+recorta y debe contener entre 1 y 50 caracteres. El backend genera el ID y
+obtiene `ownerUid` del token Firebase; el cliente no puede asignar el dueño.
+`GET /api/rooms` responde un arreglo, también vacío cuando no hay salas.
+
+Firestore guarda cada sala en `rooms/{roomId}` con `nombre`, `ownerUid` y
+`createdAt` (timestamp del servidor). La respuesta HTTP convierte `createdAt`
+a ISO 8601. La colección raíz y el ID estable permiten agregar posteriormente
+subcolecciones como `rooms/{roomId}/participants` o `rooms/{roomId}/messages`;
+esta historia no crea ni gestiona esos datos.
+
 ### Códigos de error
 
 | HTTP | Código                    | Cuándo ocurre                                                            |
