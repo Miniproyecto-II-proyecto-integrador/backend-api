@@ -218,6 +218,27 @@ export async function eliminarDatosCuenta(uid: string): Promise<void> {
       await db.recursiveDelete(sala.ref);
     }
 
+    let mensajes = await db
+      .collectionGroup("messages")
+      .where("senderUid", "==", uid)
+      .limit(400)
+      .get();
+    while (!mensajes.empty) {
+      const batch = db.batch();
+      for (const mensaje of mensajes.docs) {
+        batch.update(mensaje.ref, {
+          senderUid: null,
+          senderName: "Usuario eliminado",
+        });
+      }
+      await batch.commit();
+      mensajes = await db
+        .collectionGroup("messages")
+        .where("senderUid", "==", uid)
+        .limit(400)
+        .get();
+    }
+
     for (const coleccion of [USERNAMES, EMAILS]) {
       const indices = await db
         .collection(coleccion)
