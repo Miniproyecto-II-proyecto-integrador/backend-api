@@ -120,9 +120,8 @@ recursivamente las salas propias, libera solo los índices `usernames` y
 borra Firebase Authentication al final. Si una etapa falla, conserva el
 marcador para permitir un reintento; no vuelve a eliminar datos de otros UID.
 La política acordada elimina las salas propias con todos sus descendientes y
-conserva anonimizados los mensajes del usuario en salas ajenas cuando esa
-funcionalidad se implemente. Actualmente no existen colecciones/subcolecciones
-de mensajes o participantes en el código.
+conserva los mensajes del usuario en salas ajenas, anonimizando `senderUid` y
+`senderName` antes de eliminar el perfil y la cuenta de Firebase Authentication.
 
 ### Variables de entorno
 
