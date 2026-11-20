@@ -1,3 +1,4 @@
+import { Timestamp } from "firebase-admin/firestore";
 import { obtenerFirestore } from "../config/firebase";
 import { AppError, Errores } from "../errors/AppError";
 
@@ -15,6 +16,8 @@ export interface PerfilUsuario {
 const USERS = "users";
 const USERNAMES = "usernames";
 const EMAILS = "emails";
+const ROOMS = "rooms";
+const ACCOUNT_DELETIONS = "account-deletions";
 
 /** La unicidad no distingue mayúsculas: "Ana" y "ana" son el mismo nombre. */
 const clave = (username: string) => username.toLowerCase();
@@ -62,15 +65,24 @@ export async function crearPerfilConUsername(
   const refUsuario = db.collection(USERS).doc(uid);
   const refUsername = db.collection(USERNAMES).doc(clave(perfil.username));
   const refEmail = db.collection(EMAILS).doc(clave(perfil.email));
+  const refEliminacion = db.collection(ACCOUNT_DELETIONS).doc(uid);
 
   try {
     await db.runTransaction(async (t) => {
-      const [usuario, username, email, perfilesConCorreo] = await Promise.all([
+      const [
+        usuario,
+        username,
+        email,
+        perfilesConCorreo,
+        eliminacion,
+      ] = await Promise.all([
         t.get(refUsuario),
         t.get(refUsername),
         t.get(refEmail),
         t.get(db.collection(USERS).where("email", "==", perfil.email).limit(2)),
+        t.get(refEliminacion),
       ]);
+      if (eliminacion.exists) throw Errores.eliminacionEnProgreso();
       if (usuario.exists) throw Errores.perfilYaExiste();
       if (username.exists) throw Errores.usernameNoDisponible();
       if (
@@ -111,6 +123,7 @@ export async function actualizarPerfilConUsername(
     .doc(clave(usernameAnterior));
   const refEmailNuevo = db.collection(EMAILS).doc(clave(perfil.email));
   const refEmailAnterior = db.collection(EMAILS).doc(clave(emailAnterior));
+  const refEliminacion = db.collection(ACCOUNT_DELETIONS).doc(uid);
 
   try {
     await db.runTransaction(async (t) => {
@@ -121,6 +134,7 @@ export async function actualizarPerfilConUsername(
         emailNuevo,
         emailViejo,
         perfilesConCorreo,
+        eliminacion,
       ] = await Promise.all([
         t.get(refUsuario),
         t.get(refUsernameNuevo),
@@ -128,8 +142,10 @@ export async function actualizarPerfilConUsername(
         t.get(refEmailNuevo),
         t.get(refEmailAnterior),
         t.get(db.collection(USERS).where("email", "==", perfil.email).limit(2)),
+        t.get(refEliminacion),
       ]);
 
+      if (eliminacion.exists) throw Errores.eliminacionEnProgreso();
       if (!usuario.exists) throw Errores.perfilNoEncontrado();
       if (
         usernameNuevo.exists &&
@@ -164,6 +180,68 @@ export async function actualizarPerfilConUsername(
     if (error instanceof AppError) throw error;
     console.error("[Firestore] actualizarPerfilConUsername:", error);
     throw Errores.firestoreNoDisponible();
+  }
+}
+
+export async function iniciarEliminacionCuenta(uid: string): Promise<void> {
+  try {
+    const db = obtenerFirestore();
+    const ref = db.collection(ACCOUNT_DELETIONS).doc(uid);
+    await db.runTransaction(async (t) => {
+      const actual = await t.get(ref);
+      if (!actual.exists) {
+        t.create(ref, {
+          uid,
+          estado: "en_progreso",
+          iniciadaEn: Timestamp.now(),
+        });
+      }
+    });
+  } catch (error) {
+    console.error("[Firestore] iniciarEliminacionCuenta:", error);
+    throw Errores.firestoreNoDisponible();
+  }
+}
+
+/**
+ * Limpieza idempotente. El marcador permanece si una operación falla para
+ * bloquear nuevas escrituras y permitir reintentar con el mismo UID.
+ */
+export async function eliminarDatosCuenta(uid: string): Promise<void> {
+  try {
+    const db = obtenerFirestore();
+    const salas = await db
+      .collection(ROOMS)
+      .where("ownerUid", "==", uid)
+      .get();
+    for (const sala of salas.docs) {
+      await db.recursiveDelete(sala.ref);
+    }
+
+    for (const coleccion of [USERNAMES, EMAILS]) {
+      const indices = await db
+        .collection(coleccion)
+        .where("uid", "==", uid)
+        .get();
+      await Promise.all(indices.docs.map((indice) => indice.ref.delete()));
+    }
+
+    await db.recursiveDelete(db.collection(USERS).doc(uid));
+  } catch (error) {
+    console.error("[Firestore] eliminarDatosCuenta:", error);
+    throw Errores.eliminacionPendiente();
+  }
+}
+
+export async function finalizarEliminacionCuenta(uid: string): Promise<void> {
+  try {
+    await obtenerFirestore()
+      .collection(ACCOUNT_DELETIONS)
+      .doc(uid)
+      .delete();
+  } catch (error) {
+    console.error("[Firestore] finalizarEliminacionCuenta:", error);
+    throw Errores.eliminacionPendiente();
   }
 }
 

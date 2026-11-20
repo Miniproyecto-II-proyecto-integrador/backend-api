@@ -8,6 +8,8 @@ export type CodigoError =
   | "FIRESTORE_NO_DISPONIBLE"
   | "FIREBASE_AUTH_NO_DISPONIBLE"
   | "CORREO_NO_SINCRONIZADO"
+  | "ELIMINACION_EN_PROGRESO"
+  | "ELIMINACION_PENDIENTE"
   | "DATO_NO_ENCONTRADO"
   | "RUTA_NO_ENCONTRADA"
   | "ORIGEN_NO_PERMITIDO"
@@ -55,6 +57,20 @@ export const Errores = {
       "CORREO_NO_SINCRONIZADO",
       "No se pudo completar el cambio y el correo podría no estar sincronizado.",
       "Inicia sesión de nuevo y contacta al equipo si el problema continúa.",
+    ),
+  eliminacionEnProgreso: () =>
+    new AppError(
+      409,
+      "ELIMINACION_EN_PROGRESO",
+      "La cuenta se está eliminando y no puede modificarse.",
+      "Espera a que termine el proceso.",
+    ),
+  eliminacionPendiente: () =>
+    new AppError(
+      503,
+      "ELIMINACION_PENDIENTE",
+      "La eliminación comenzó, pero no pudo completarse. Algunos datos pueden haberse eliminado.",
+      "Vuelve a intentarlo con la misma cuenta o contacta al equipo.",
     ),
   datoNoEncontrado: () =>
     new AppError(

@@ -1,9 +1,11 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { obtenerFirestore } from "../config/firebase";
-import { Errores } from "../errors/AppError";
+import { AppError, Errores } from "../errors/AppError";
 import { SalaDocumento, SalaRespuesta } from "../types/room";
 
 const ROOMS = "rooms";
+const USERS = "users";
+const ACCOUNT_DELETIONS = "account-deletions";
 
 function serializarSala(id: string, documento: SalaDocumento): SalaRespuesta {
   return {
@@ -19,15 +21,27 @@ export async function crearSala(
   nombre: string,
 ): Promise<SalaRespuesta> {
   try {
-    const ref = obtenerFirestore().collection(ROOMS).doc();
+    const db = obtenerFirestore();
+    const ref = db.collection(ROOMS).doc();
+    const refUsuario = db.collection(USERS).doc(ownerUid);
+    const refEliminacion = db.collection(ACCOUNT_DELETIONS).doc(ownerUid);
     const documento: SalaDocumento = {
       nombre,
       ownerUid,
       createdAt: Timestamp.now(),
     };
-    await ref.create(documento);
+    await db.runTransaction(async (t) => {
+      const [usuario, eliminacion] = await Promise.all([
+        t.get(refUsuario),
+        t.get(refEliminacion),
+      ]);
+      if (eliminacion.exists) throw Errores.eliminacionEnProgreso();
+      if (!usuario.exists) throw Errores.perfilNoEncontrado();
+      t.create(ref, documento);
+    });
     return serializarSala(ref.id, documento);
   } catch (error) {
+    if (error instanceof AppError) throw error;
     console.error("[Firestore] crearSala:", error);
     throw Errores.firestoreNoDisponible();
   }
