@@ -71,6 +71,7 @@ Todos los errores usan el formato `{ "error": { "codigo", "mensaje", "sugerencia
 | POST   | `/api/users`                               | Sí   | Crear el perfil del usuario autenticado (registro manual y con Google)                 | 201, 400, 401, 409, 503 |
 | GET    | `/api/users/me`                            | Sí   | Leer el perfil de la sesión actual; 404 si un usuario de Google aún no eligió username | 200, 401, 404, 503      |
 | PATCH  | `/api/users/me`                            | Sí   | Actualizar parcialmente nombres, apellidos, username, correo y avatar                   | 200, 400, 401, 404, 409, 503 |
+| DELETE | `/api/users/me`                            | Sí   | Eliminar la cuenta actual, perfil e índices asociados                                  | 200, 401, 503            |
 
 ## Endpoints de salas (US-06)
 
@@ -103,12 +104,25 @@ esta historia no crea ni gestiona esos datos.
 | 503  | `FIRESTORE_NO_DISPONIBLE` | Firestore no respondió                                                   |
 | 503  | `FIREBASE_AUTH_NO_DISPONIBLE` | Firebase Authentication no pudo actualizar el correo                |
 | 503  | `CORREO_NO_SINCRONIZADO`  | Falló la compensación de un cambio de correo entre Auth y Firestore       |
+| 409  | `ELIMINACION_EN_PROGRESO` | La cuenta está en proceso de eliminación                                  |
+| 503  | `ELIMINACION_PENDIENTE`   | La eliminación quedó parcial y debe reintentarse                          |
 
 `PATCH /api/users/me` acepta uno o más campos JSON (`nombres`, `apellidos`,
 `username`, `email`, `avatar`). No acepta un UID; el usuario se determina por
 el ID token verificado. El cambio de username y la actualización del perfil se
 confirman en una transacción. Si cambia el correo, también se actualiza Firebase
 Authentication; si Firestore falla, la API intenta revertir el cambio de Auth.
+
+`DELETE /api/users/me` utiliza un marcador temporal idempotente para impedir
+nuevas escrituras mientras se elimina la cuenta. El proceso elimina
+recursivamente las salas propias, libera solo los índices `usernames` y
+`emails` que apuntan al UID autenticado, elimina recursivamente el perfil y
+borra Firebase Authentication al final. Si una etapa falla, conserva el
+marcador para permitir un reintento; no vuelve a eliminar datos de otros UID.
+La política acordada elimina las salas propias con todos sus descendientes y
+conserva anonimizados los mensajes del usuario en salas ajenas cuando esa
+funcionalidad se implemente. Actualmente no existen colecciones/subcolecciones
+de mensajes o participantes en el código.
 
 ### Variables de entorno
 

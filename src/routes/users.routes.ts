@@ -4,6 +4,7 @@ import {
   consultarUsername,
   crearPerfil,
   actualizarMiPerfil,
+  eliminarMiCuenta,
   obtenerMiPerfil,
 } from "../services/users.service";
 
@@ -57,6 +58,19 @@ usersRouter.patch(
     try {
       const perfil = await actualizarMiPerfil(req.usuario!, req.body);
       res.status(200).json(perfil);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+usersRouter.delete(
+  "/users/me",
+  requiereAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const resultado = await eliminarMiCuenta(req.usuario!.uid);
+      res.status(200).json(resultado);
     } catch (error) {
       next(error);
     }

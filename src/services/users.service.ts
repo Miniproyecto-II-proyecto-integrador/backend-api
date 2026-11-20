@@ -2,6 +2,9 @@ import { obtenerAuth } from "../config/firebase";
 import { AppError, Errores } from "../errors/AppError";
 import {
   actualizarPerfilConUsername,
+  eliminarDatosCuenta,
+  finalizarEliminacionCuenta,
+  iniciarEliminacionCuenta,
   PerfilUsuario,
   correoEnUsoPorOtro,
   crearPerfilConUsername,
@@ -219,4 +222,40 @@ export async function actualizarMiPerfil(
   }
 
   return { uid: usuario.uid, ...perfilNuevo };
+}
+
+export async function eliminarMiCuenta(
+  uid: string,
+): Promise<{ eliminada: true; mensaje: string }> {
+  await iniciarEliminacionCuenta(uid);
+  await eliminarDatosCuenta(uid);
+
+  try {
+    await obtenerAuth().deleteUser(uid);
+  } catch (error) {
+    if (codigoFirebase(error) !== "auth/user-not-found") {
+      console.error("[Firebase Auth] eliminar cuenta:", error);
+      let cuentaAunExiste = false;
+      try {
+        await obtenerAuth().getUser(uid);
+        cuentaAunExiste = true;
+      } catch (errorVerificacion) {
+        if (codigoFirebase(errorVerificacion) !== "auth/user-not-found") {
+          console.error(
+            "[Firebase Auth] verificar eliminación de cuenta:",
+            errorVerificacion,
+          );
+          throw Errores.eliminacionPendiente();
+        }
+        // El borrado pudo completarse aunque la respuesta de Auth se perdiera.
+      }
+      if (cuentaAunExiste) throw Errores.eliminacionPendiente();
+    }
+  }
+
+  await finalizarEliminacionCuenta(uid);
+  return {
+    eliminada: true,
+    mensaje: "Tu cuenta y sus datos asociados se eliminaron correctamente.",
+  };
 }
