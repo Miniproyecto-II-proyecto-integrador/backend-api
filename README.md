@@ -82,6 +82,7 @@ Todos los errores usan el formato `{ "error": { "codigo", "mensaje", "sugerencia
 | GET    | `/api/rooms/closing` | Sí | Recuperar los IDs de salas propias pendientes de eliminar | 200, 401, 503 |
 | PATCH  | `/api/rooms/:id` | Sí | Editar el nombre de una sala propia activa | 200, 400, 401, 403, 404, 409, 503 |
 | DELETE | `/api/rooms/:id` | Sí | Eliminar o reanudar la eliminación de una sala propia | 204, 400, 401, 403, 404, 503 |
+| GET    | `/api/rooms/:id/messages` | Sí | Leer los mensajes de una sala activa, por páginas | 200, 400, 401, 404, 503 |
 
 `POST /api/rooms` recibe `{ "nombre": "Taller de Álgebra" }`. El nombre se
 recorta y debe contener entre 1 y 50 caracteres. El backend genera el ID y
@@ -93,6 +94,58 @@ Firestore guarda cada sala en `rooms/{roomId}` con `nombre`, `ownerUid` y
 a ISO 8601. La colección raíz y el ID estable permiten agregar posteriormente
 subcolecciones como `rooms/{roomId}/participants` o `rooms/{roomId}/messages`;
 esta historia no crea ni gestiona esos datos.
+
+### Historial de mensajes (US-11)
+
+Envía `Authorization: Bearer <ID token de Firebase>`. Con el ID de una sala activa, un usuario autenticado puede consultar su historial. La primera petición busca los mensajes más recientes. Cada respuesta los entrega en orden cronológico. Anteponer las páginas anteriores conserva ese orden en el chat.
+
+```http
+GET /api/rooms/sala-a/messages?limit=1
+```
+
+```json
+{
+  "messages": [
+    {
+      "id": "msg-b",
+      "roomId": "sala-a",
+      "senderUid": null,
+      "senderName": "Usuario eliminado",
+      "content": "Hola",
+      "createdAt": "2026-11-26T15:00:00.000Z"
+    }
+  ],
+  "nextCursor": "<cursor firmado emitido por la API>",
+  "hasMore": true
+}
+```
+
+```http
+GET /api/rooms/sala-a/messages?limit=1&cursor=<nextCursor>
+```
+
+- `limit` es un entero entre `1` y `100` y vale `50` por defecto. La última página devuelve `nextCursor: null` y `hasMore: false`. Un historial vacío devuelve `200` con `{ "messages": [], "nextCursor": null, "hasMore": false }`.
+- En la segunda petición, sustituye `<nextCursor>` por el valor recibido de la API para esa misma sala. Trata el cursor como opaco. La API verifica primero su firma HMAC-SHA256 y después el ID y Timestamp del mensaje que marcó el final de la página. Base64URL codifica el payload sin cifrarlo. HMAC protege su integridad. Si el cursor falla la validación o su mensaje de referencia desapareció o cambió, el cliente puede reiniciar desde la primera página.
+- Cada mensaje usa los campos de `message:new` y una fecha ISO 8601. En el historial, `senderUid` también puede ser `null` por la anonimización de cuentas. La precisión del cursor se conserva por separado en segundos y nanosegundos.
+- Firestore ordena `rooms/{id}/messages` por `createdAt` e ID de documento, ambos descendentes, y usa `startAfter` y `limit + 1`. Con la indexación predeterminada basta el índice descendente de `createdAt` con alcance de colección, cuyo desempate implícito por `__name__` también es descendente. [Índices de Firestore](https://firebase.google.com/docs/firestore/query-data/index-overview#default_ordering_and_the_name_field)
+- Cada petición usa una instantánea independiente. Los mensajes confirmados tarde en un tramo ya recorrido pueden quedar fuera de las páginas anteriores. Para el chat, conserva el orden que entrega cada página, antepone las páginas anteriores y combina historial y eventos `message:new` por `id`. Tras una desconexión, vuelve a consultar la página más reciente y pide páginas anteriores hasta alcanzar mensajes que ya tienes, si todavía hay un hueco.
+- `400 DATOS_INVALIDOS` cubre ID, límite y cursor inválidos. `401 TOKEN_INVALIDO` indica que la sesión es inválida. `404 DATO_NO_ENCONTRADO` cubre salas inexistentes y en cierre. `503` indica que Firestore o Firebase Auth no están disponibles, o `HISTORIAL_NO_DISPONIBLE` si falta una clave de cursor válida.
+
+#### Clave de firma del historial
+
+Genera una clave dedicada de 32 bytes en hexadecimal con `openssl rand -hex 32`. Guarda el resultado en `CURSOR_SECRET` en tu `.env` local ignorado por Git. En Render, configúralo como secreto en **Environment** del servicio `backend-api` antes del despliegue. Las instancias de la API que atienden el mismo entorno deben compartir la clave. Usa una distinta de la cuenta de servicio de Firebase y de las claves de otros entornos.
+
+Cambiar la clave invalida los cursores anteriores. Tras una rotación, el cliente puede volver a consultar la página más reciente si recibe `400` por el cursor. Si falta la clave o su formato es inválido, la API devuelve `503 HISTORIAL_NO_DISPONIBLE` solo para historial. El arranque y `/health` siguen disponibles.
+
+#### Prueba de integración del cierre
+
+Con Firestore Emulator ejecutándose en `127.0.0.1:8080` para el proyecto `demo-mini2-us11`, ejecuta desde `backend-api`:
+
+```bash
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm test
+```
+
+La prueba usa Auth simulado y una clave de firma efímera. Pausa una lectura después de consultar la sala, confirma su cierre y verifica que la lectura original termina sobre su instantánea y que las peticiones nuevas obtienen `404`. Sin `FIRESTORE_EMULATOR_HOST`, la suite omite ese caso y ejecuta las pruebas con dobles.
 
 ### Códigos de error
 

@@ -6,6 +6,7 @@
  */
 export type CodigoError =
   | "FIRESTORE_NO_DISPONIBLE"
+  | "HISTORIAL_NO_DISPONIBLE"
   | "FIREBASE_AUTH_NO_DISPONIBLE"
   | "CORREO_NO_SINCRONIZADO"
   | "ELIMINACION_EN_PROGRESO"
@@ -40,6 +41,13 @@ export class AppError extends Error {
 }
 
 export const Errores = {
+  historialNoDisponible: () =>
+    new AppError(
+      503,
+      "HISTORIAL_NO_DISPONIBLE",
+      "No pudimos cargar el historial en este momento.",
+      "Intenta de nuevo más tarde.",
+    ),
   firestoreNoDisponible: () =>
     new AppError(
       503,
