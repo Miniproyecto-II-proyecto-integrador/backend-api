@@ -63,3 +63,29 @@ export async function listarSalasPropias(
     throw Errores.firestoreNoDisponible();
   }
 }
+
+export async function actualizarNombreSala(
+  id: string,
+  uid: string,
+  nombre: string,
+): Promise<SalaRespuesta> {
+  try {
+    const db = obtenerFirestore();
+    const ref = db.collection(ROOMS).doc(id);
+
+    return await db.runTransaction(async (t) => {
+      const snapshot = await t.get(ref);
+      const sala = snapshot.data() as SalaDocumento | undefined;
+      if (!sala) throw Errores.datoNoEncontrado();
+      if (sala.ownerUid !== uid) throw Errores.edicionSalaNoPermitida();
+
+      const respuesta = serializarSala(ref.id, { ...sala, nombre });
+      t.update(ref, { nombre });
+      return respuesta;
+    });
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    console.error("[Firestore] actualizarNombreSala:", error);
+    throw Errores.firestoreNoDisponible();
+  }
+}

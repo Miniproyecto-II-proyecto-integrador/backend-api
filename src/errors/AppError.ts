@@ -15,6 +15,7 @@ export type CodigoError =
   | "ORIGEN_NO_PERMITIDO"
   | "ERROR_INTERNO"
   | "TOKEN_INVALIDO"
+  | "SALA_ACCESO_DENEGADO"
   | "DATOS_INVALIDOS"
   | "USERNAME_NO_DISPONIBLE"
   | "CORREO_YA_REGISTRADO"
@@ -100,6 +101,12 @@ export const Errores = {
       "TOKEN_INVALIDO",
       "Tu sesión no es válida o ya venció.",
       "Inicia sesión de nuevo para continuar.",
+    ),
+  edicionSalaNoPermitida: () =>
+    new AppError(
+      403,
+      "SALA_ACCESO_DENEGADO",
+      "Solo el anfitrión puede editar esta sala.",
     ),
   datosInvalidos: (campos: CamposError) =>
     new AppError(

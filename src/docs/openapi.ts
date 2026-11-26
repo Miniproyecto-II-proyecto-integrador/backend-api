@@ -47,6 +47,27 @@ const err = (descripcion: string) => ({
 });
 const seguridad = [{ bearerAuth: [] }];
 
+const cuerpoNombreSala = {
+  required: true,
+  content: {
+    "application/json": {
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["nombre"],
+        properties: {
+          nombre: {
+            type: "string",
+            minLength: 1,
+            maxLength: 50,
+            example: "Taller de Álgebra Lineal",
+          },
+        },
+      },
+    },
+  },
+};
+
 export const openapi = {
   openapi: "3.0.3",
   info: {
@@ -316,26 +337,7 @@ export const openapi = {
           "El ownerUid se obtiene del ID token verificado; no se acepta desde el cuerpo.",
         tags: ["Salas"],
         security: seguridad,
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                additionalProperties: false,
-                required: ["nombre"],
-                properties: {
-                  nombre: {
-                    type: "string",
-                    minLength: 1,
-                    maxLength: 50,
-                    example: "Taller de Álgebra Lineal",
-                  },
-                },
-              },
-            },
-          },
-        },
+        requestBody: cuerpoNombreSala,
         responses: {
           "201": {
             description: "Sala creada",
@@ -371,6 +373,41 @@ export const openapi = {
           },
           "401": err("Sin token o token inválido/vencido"),
           "503": err("Firestore no responde"),
+        },
+      },
+    },
+    "/api/rooms/{id}": {
+      patch: {
+        summary: "Edita el nombre de una sala propia",
+        description:
+          "El nombre se recorta antes de validar su longitud. Solo puede editar la sala el anfitrión identificado por el ID token.",
+        tags: ["Salas"],
+        security: seguridad,
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description:
+              "ID de la sala. Se recorta y se rechazan barras, caracteres de control e IDs reservados.",
+            schema: { type: "string", minLength: 1, maxLength: 128 },
+          },
+        ],
+        requestBody: cuerpoNombreSala,
+        responses: {
+          "200": {
+            description: "Sala actualizada",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Sala" },
+              },
+            },
+          },
+          "400": err("ID o nombre inválido, o campos no permitidos"),
+          "401": err("Sin token o token inválido/vencido"),
+          "403": err("Solo el anfitrión puede editar esta sala"),
+          "404": err("La sala no existe"),
+          "503": err("Firestore no está disponible"),
         },
       },
     },

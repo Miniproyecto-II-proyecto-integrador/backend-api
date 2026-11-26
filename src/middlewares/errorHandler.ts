@@ -28,6 +28,10 @@ export function manejadorErrores(
     error !== null &&
     (error as { type?: string }).type === "entity.parse.failed";
 
+  // Express genera este error al decodificar un parámetro de ruta mal escapado.
+  const parametroMalCodificado =
+    error instanceof URIError && "status" in error && error.status === 400;
+
   const appError =
     error instanceof AppError
       ? error
@@ -35,9 +39,13 @@ export function manejadorErrores(
         ? Errores.datosInvalidos({
             general: "El formato de los datos enviados no es válido.",
           })
-        : Errores.interno();
+        : parametroMalCodificado
+          ? Errores.datosInvalidos({
+              general: "La dirección no tiene un formato válido.",
+            })
+          : Errores.interno();
 
-  if (!(error instanceof AppError) && !jsonRoto) {
+  if (!(error instanceof AppError) && !jsonRoto && !parametroMalCodificado) {
     console.error("[Error no controlado]", error);
   }
 
