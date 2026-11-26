@@ -78,7 +78,10 @@ Todos los errores usan el formato `{ "error": { "codigo", "mensaje", "sugerencia
 | Método | Ruta          | Auth | Para qué sirve                                  | Respuestas |
 | ------ | ------------- | ---- | ----------------------------------------------- | ---------- |
 | POST   | `/api/rooms`  | Sí   | Crear una sala propia                           | 201, 400, 401, 503 |
-| GET    | `/api/rooms`  | Sí   | Listar únicamente las salas propias, recientes primero | 200, 401, 503 |
+| GET    | `/api/rooms`  | Sí   | Listar las salas propias activas, recientes primero | 200, 401, 503 |
+| GET    | `/api/rooms/closing` | Sí | Recuperar los IDs de salas propias pendientes de eliminar | 200, 401, 503 |
+| PATCH  | `/api/rooms/:id` | Sí | Editar el nombre de una sala propia activa | 200, 400, 401, 403, 404, 409, 503 |
+| DELETE | `/api/rooms/:id` | Sí | Eliminar o reanudar la eliminación de una sala propia | 204, 400, 401, 403, 404, 503 |
 
 `POST /api/rooms` recibe `{ "nombre": "Taller de Álgebra" }`. El nombre se
 recorta y debe contener entre 1 y 50 caracteres. El backend genera el ID y
@@ -166,6 +169,14 @@ docker compose up --build
 ```
 
 ## Despliegue en Render (Docker)
+
+### Orden obligatorio para US-07
+
+1. Mantén la API en la revisión anterior y despliega primero `backend-realtime` con el bloqueo de `closingAt`. Coordina los despliegues automáticos para que la API espere en ese paso.
+2. En Render, anota los IDs de las instancias antiguas, confirma el commit nuevo en **Events** y verifica que todas las anteriores terminaron, incluido el plazo de apagado configurado. En los logs, contrasta los IDs de instancia con los del despliegue. Si hay WebSockets de comprobación abiertos antes del cambio, comprueba que terminaron y que reconectan al servicio actualizado. Un `200` en `/health` o una conexión nueva por sí solos no confirman que los procesos antiguos dejaron de atender. Si no puedes confirmar el drenaje de todas las instancias, mantén la API en la versión anterior. [Despliegues de Render](https://render.com/docs/deploys#zero-downtime-deploys) · [Logs por instancia](https://render.com/docs/logging)
+3. Despliega la API solo después de esa comprobación. El orden cubre tanto el nuevo `DELETE /api/rooms/:id` como el cierre que inicia `DELETE /api/users/me`.
+
+**Rollback.** Conserva una versión de realtime que compruebe `closingAt` mientras exista la posibilidad de salas marcadas. Una revisión antigua de realtime puede aceptar mensajes durante la limpieza. Una revisión antigua de la API puede quitar la vía de recuperación y volver a borrar salas de cuenta sin conservar el padre hasta terminar. Antes de volver a cualquiera de esas revisiones, detén el tráfico de borrado de salas y cuentas, deja terminar las solicitudes en curso y confirma que no quedan salas con `closingAt`. Si necesitas volver a realtime antiguo, desactiva primero los flujos de cierre de la API. Conserva los marcadores pendientes hasta completar la limpieza. Un marcador de cuenta residual tras haber borrado la identidad de Auth requiere verificar la ausencia de esa identidad y de los datos pendientes antes de retirarlo por operación administrativa.
 
 1. Nuevo **Web Service** → conectar este repositorio → entorno **Docker** (Render usa el `Dockerfile`).
 2. En **Environment** agrega las variables de `.env.example`, con `FIREBASE_SERVICE_ACCOUNT_JSON` con el JSON de la cuenta de servicio.

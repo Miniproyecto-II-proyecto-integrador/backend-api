@@ -4,6 +4,7 @@ export interface SalaDocumento {
   nombre: string;
   ownerUid: string;
   createdAt: Timestamp;
+  closingAt?: Timestamp;
 }
 
 export interface SalaRespuesta {

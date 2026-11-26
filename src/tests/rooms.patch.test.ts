@@ -32,7 +32,7 @@ async function prepararApi(
     async verifyIdToken(token: string) {
       if (token === "token-anfitrion") return { uid: anfitrionUid };
       if (token === "token-invitado") return { uid: "uid-invitado" };
-      throw new Error("Token de prueba inválido");
+      throw Object.assign(new Error("Token de prueba inválido"), { code: "auth/argument-error" });
     },
   }));
 

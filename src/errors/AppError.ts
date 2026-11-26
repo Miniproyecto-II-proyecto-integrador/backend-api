@@ -16,6 +16,8 @@ export type CodigoError =
   | "ERROR_INTERNO"
   | "TOKEN_INVALIDO"
   | "SALA_ACCESO_DENEGADO"
+  | "SALA_EN_CIERRE"
+  | "SALA_ELIMINACION_PENDIENTE"
   | "DATOS_INVALIDOS"
   | "USERNAME_NO_DISPONIBLE"
   | "CORREO_YA_REGISTRADO"
@@ -50,6 +52,13 @@ export const Errores = {
       503,
       "FIREBASE_AUTH_NO_DISPONIBLE",
       "No pudimos actualizar tu correo en este momento.",
+      "Intenta de nuevo en unos segundos.",
+    ),
+  verificacionAuthNoDisponible: () =>
+    new AppError(
+      503,
+      "FIREBASE_AUTH_NO_DISPONIBLE",
+      "No pudimos verificar tu sesión en este momento.",
       "Intenta de nuevo en unos segundos.",
     ),
   correoNoSincronizado: () =>
@@ -102,11 +111,20 @@ export const Errores = {
       "Tu sesión no es válida o ya venció.",
       "Inicia sesión de nuevo para continuar.",
     ),
-  edicionSalaNoPermitida: () =>
+  salaAccesoDenegado: () =>
     new AppError(
       403,
       "SALA_ACCESO_DENEGADO",
-      "Solo el anfitrión puede editar esta sala.",
+      "Solo el anfitrión puede modificar esta sala.",
+    ),
+  salaEnCierre: () =>
+    new AppError(409, "SALA_EN_CIERRE", "La sala se está eliminando."),
+  salaEliminacionPendiente: () =>
+    new AppError(
+      503,
+      "SALA_ELIMINACION_PENDIENTE",
+      "La sala está cerrada, pero su eliminación aún no termina.",
+      "Vuelve a intentar eliminar la misma sala.",
     ),
   datosInvalidos: (campos: CamposError) =>
     new AppError(

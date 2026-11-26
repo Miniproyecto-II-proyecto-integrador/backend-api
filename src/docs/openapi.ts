@@ -47,6 +47,15 @@ const err = (descripcion: string) => ({
 });
 const seguridad = [{ bearerAuth: [] }];
 
+const parametroIdSala = {
+  name: "id",
+  in: "path",
+  required: true,
+  description:
+    "ID de la sala. Se recorta y se rechazan barras, caracteres de control e IDs reservados.",
+  schema: { type: "string", minLength: 1, maxLength: 128 },
+};
+
 const cuerpoNombreSala = {
   required: true,
   content: {
@@ -300,7 +309,7 @@ export const openapi = {
       delete: {
         summary: "Elimina la cuenta de la sesión actual",
         description:
-          "El UID se obtiene exclusivamente del token verificado. Elimina las salas propias con sus descendientes, libera los índices de usuario y elimina el perfil de Firestore y la cuenta de Firebase Authentication. Los mensajes de salas ajenas se conservan anonimizados.",
+          "Comprueba vigencia, revocación y estado de la cuenta. Elimina las salas propias con sus descendientes, libera los índices de usuario y elimina el perfil y la cuenta. Los mensajes supervivientes de salas ajenas se anonimizan, incluso si esas salas están en cierre.",
         tags: ["Usuarios"],
         security: seguridad,
         responses: {
@@ -323,10 +332,8 @@ export const openapi = {
               },
             },
           },
-          "401": err("Sin token o token inválido/vencido"),
-          "503": err(
-            "La eliminación quedó pendiente; parte de los datos pudo haberse eliminado",
-          ),
+          "401": err("Sesión ausente, inválida, revocada o cuenta deshabilitada o eliminada"),
+          "503": err("Firebase Auth no está disponible o la eliminación de la cuenta quedó pendiente"),
         },
       },
     },
@@ -355,7 +362,7 @@ export const openapi = {
       get: {
         summary: "Lista las salas propias",
         description:
-          "Devuelve solo las salas cuyo ownerUid coincide con el UID del ID token, ordenadas de más reciente a más antigua.",
+          "Devuelve solo las salas activas cuyo ownerUid coincide con el UID del ID token, de más reciente a más antigua.",
         tags: ["Salas"],
         security: seguridad,
         responses: {
@@ -376,6 +383,26 @@ export const openapi = {
         },
       },
     },
+    "/api/rooms/closing": {
+      get: {
+        summary: "Lista las salas propias con eliminación pendiente",
+        description: "Recupera los IDs necesarios para reintentar DELETE tras recargar o iniciar una nueva sesión.",
+        tags: ["Salas"],
+        security: seguridad,
+        responses: {
+          "200": {
+            description: "Salas propias en cierre, de más reciente a más antigua. Puede estar vacía.",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/Sala" } },
+              },
+            },
+          },
+          "401": err("Sesión ausente, inválida, revocada o cuenta deshabilitada o eliminada"),
+          "503": err("Firebase Auth o Firestore no están disponibles"),
+        },
+      },
+    },
     "/api/rooms/{id}": {
       patch: {
         summary: "Edita el nombre de una sala propia",
@@ -383,16 +410,7 @@ export const openapi = {
           "El nombre se recorta antes de validar su longitud. Solo puede editar la sala el anfitrión identificado por el ID token.",
         tags: ["Salas"],
         security: seguridad,
-        parameters: [
-          {
-            name: "id",
-            in: "path",
-            required: true,
-            description:
-              "ID de la sala. Se recorta y se rechazan barras, caracteres de control e IDs reservados.",
-            schema: { type: "string", minLength: 1, maxLength: 128 },
-          },
-        ],
+        parameters: [parametroIdSala],
         requestBody: cuerpoNombreSala,
         responses: {
           "200": {
@@ -404,10 +422,27 @@ export const openapi = {
             },
           },
           "400": err("ID o nombre inválido, o campos no permitidos"),
-          "401": err("Sin token o token inválido/vencido"),
+          "401": err("Sesión ausente, inválida, revocada o cuenta deshabilitada o eliminada"),
           "403": err("Solo el anfitrión puede editar esta sala"),
           "404": err("La sala no existe"),
-          "503": err("Firestore no está disponible"),
+          "409": err("La sala se está eliminando"),
+          "503": err("Firebase Auth o Firestore no están disponibles"),
+        },
+      },
+      delete: {
+        summary: "Elimina una sala propia y sus subcolecciones",
+        description:
+          "Solo el anfitrión con sesión vigente puede iniciar o reintentar el borrado. Si la limpieza queda pendiente, recupera el ID en GET /api/rooms/closing y reintenta con ese ID.",
+        tags: ["Salas"],
+        security: seguridad,
+        parameters: [parametroIdSala],
+        responses: {
+          "204": { description: "Sala y descendientes eliminados, sin cuerpo" },
+          "400": err("ID de sala inválido"),
+          "401": err("Sesión ausente, inválida, revocada o cuenta deshabilitada o eliminada"),
+          "403": err("Solo el anfitrión puede eliminar esta sala"),
+          "404": err("La sala no existe"),
+          "503": err("Firebase Auth o Firestore no están disponibles, o la limpieza quedó pendiente"),
         },
       },
     },
