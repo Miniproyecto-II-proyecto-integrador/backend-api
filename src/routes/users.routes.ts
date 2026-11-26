@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response, Router } from "express";
-import { requiereAuth } from "../middlewares/auth";
+import { requiereAuth, requiereAuthVigente } from "../middlewares/auth";
 import {
   consultarUsername,
   crearPerfil,
@@ -66,7 +66,7 @@ usersRouter.patch(
 
 usersRouter.delete(
   "/users/me",
-  requiereAuth,
+  requiereAuthVigente,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const resultado = await eliminarMiCuenta(req.usuario!.uid);

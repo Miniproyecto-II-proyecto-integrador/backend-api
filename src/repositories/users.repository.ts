@@ -5,6 +5,7 @@ import {
 } from "firebase-admin/firestore";
 import { obtenerFirestore } from "../config/firebase";
 import { AppError, Errores } from "../errors/AppError";
+import { limpiarSalaCerrada, marcarCierreSala } from "./rooms.repository";
 
 export interface PerfilUsuario {
   nombres: string;
@@ -22,6 +23,8 @@ const USERNAMES = "usernames";
 const EMAILS = "emails";
 const ROOMS = "rooms";
 const ACCOUNT_DELETIONS = "account-deletions";
+const GRPC_NOT_FOUND = 5;
+const MAX_REINTENTOS_ANONIMIZACION = 3;
 
 /** La unicidad no distingue mayúsculas: "Ana" y "ana" son el mismo nombre. */
 const clave = (username: string) => username.toLowerCase();
@@ -218,8 +221,12 @@ export async function eliminarDatosCuenta(uid: string): Promise<void> {
       .collection(ROOMS)
       .where("ownerUid", "==", uid)
       .get();
+    const salasEnCierre: string[] = [];
     for (const sala of salas.docs) {
-      await db.recursiveDelete(sala.ref);
+      if (await marcarCierreSala(sala.id, uid)) salasEnCierre.push(sala.id);
+    }
+    for (const id of salasEnCierre) {
+      await limpiarSalaCerrada(id);
     }
 
     let cursor: QueryDocumentSnapshot | undefined;
@@ -235,8 +242,10 @@ export async function eliminarDatosCuenta(uid: string): Promise<void> {
         const consultaMensajes = sala.ref
           .collection("messages")
           .where("senderUid", "==", uid);
-        let mensajes = await consultaMensajes.limit(400).get();
-        while (!mensajes.empty) {
+        let reintentos = 0;
+        while (true) {
+          const mensajes = await consultaMensajes.limit(400).get();
+          if (mensajes.empty) break;
           const batch = db.batch();
           for (const mensaje of mensajes.docs) {
             batch.update(mensaje.ref, {
@@ -244,8 +253,17 @@ export async function eliminarDatosCuenta(uid: string): Promise<void> {
               senderName: "Usuario eliminado",
             });
           }
-          await batch.commit();
-          mensajes = await consultaMensajes.limit(400).get();
+          try {
+            await batch.commit();
+          } catch (error) {
+            // Un update de un documento borrado puede abortar todo el lote.
+            const documentoAusente = typeof error === "object" && error !== null
+              && "code" in error && error.code === GRPC_NOT_FOUND;
+            if (!documentoAusente || reintentos >= MAX_REINTENTOS_ANONIMIZACION) throw error;
+            reintentos++;
+            continue;
+          }
+          reintentos = 0;
         }
       }
 
