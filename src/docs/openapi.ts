@@ -56,6 +56,19 @@ const parametroIdSala = {
   schema: { type: "string", minLength: 1, maxLength: 128 },
 };
 
+const ejemploPaginaHistorial = {
+  messages: [{
+    id: "msg-b",
+    roomId: "sala-a",
+    senderUid: null,
+    senderName: "Usuario eliminado",
+    content: "Hola",
+    createdAt: "2026-11-26T15:00:00.000Z",
+  }],
+  nextCursor: "<cursor firmado emitido por la API>",
+  hasMore: true,
+};
+
 const cuerpoNombreSala = {
   required: true,
   content: {
@@ -97,6 +110,27 @@ export const openapi = {
       },
     },
     schemas: {
+      MensajeHistorial: {
+        type: "object",
+        required: ["id", "roomId", "senderUid", "senderName", "content", "createdAt"],
+        properties: {
+          id: { type: "string" },
+          roomId: { type: "string" },
+          senderUid: { type: "string", nullable: true },
+          senderName: { type: "string" },
+          content: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      HistorialMensajes: {
+        type: "object",
+        required: ["messages", "nextCursor", "hasMore"],
+        properties: {
+          messages: { type: "array", items: { $ref: "#/components/schemas/MensajeHistorial" } },
+          nextCursor: { type: "string", nullable: true, description: "Cursor opaco de la página anterior." },
+          hasMore: { type: "boolean", description: "Quedan mensajes anteriores." },
+        },
+      },
       Sala: {
         type: "object",
         required: ["id", "nombre", "ownerUid", "createdAt"],
@@ -400,6 +434,47 @@ export const openapi = {
           },
           "401": err("Sesión ausente, inválida, revocada o cuenta deshabilitada o eliminada"),
           "503": err("Firebase Auth o Firestore no están disponibles"),
+        },
+      },
+    },
+    "/api/rooms/{id}/messages": {
+      get: {
+        summary: "Consulta el historial de mensajes de una sala",
+        description:
+          "El ID de una sala activa funciona como invitación para usuarios autenticados. La primera página trae los mensajes más recientes y devuelve cada página de más antiguo a más reciente. Usa nextCursor para pedir mensajes anteriores.",
+        tags: ["Salas"],
+        security: seguridad,
+        parameters: [
+          parametroIdSala,
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            description: "Cursor firmado que la API devolvió en nextCursor para esta misma sala. Cada página usa su propia instantánea.",
+            schema: { type: "string", minLength: 1, maxLength: 8192 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Página de mensajes o historial vacío",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/HistorialMensajes" },
+                examples: {
+                  conMensajes: { summary: "Una página con mensajes anteriores disponibles", value: ejemploPaginaHistorial },
+                  vacio: { summary: "Historial vacío", value: { messages: [], nextCursor: null, hasMore: false } },
+                },
+              },
+            },
+          },
+          "400": err("DATOS_INVALIDOS. ID, límite o cursor inválido, o parámetros no permitidos"),
+          "401": err("TOKEN_INVALIDO. Sesión ausente, inválida, revocada o cuenta deshabilitada o eliminada"),
+          "404": err("DATO_NO_ENCONTRADO. La sala no existe o está en cierre"),
+          "503": err("FIRESTORE_NO_DISPONIBLE, FIREBASE_AUTH_NO_DISPONIBLE o HISTORIAL_NO_DISPONIBLE si falta CURSOR_SECRET o su formato es inválido"),
         },
       },
     },

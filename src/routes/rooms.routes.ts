@@ -1,10 +1,25 @@
 import { NextFunction, Request, Response, Router } from "express";
 import { requiereAuth, requiereAuthVigente } from "../middlewares/auth";
+import { obtenerHistorial } from "../services/messages.service";
 import {
   crearSala, editarSala, eliminarSala, listarSalas, listarSalasEnCierre,
 } from "../services/rooms.service";
 
 export const roomsRouter = Router();
+
+roomsRouter.get(
+  "/rooms/:id/messages",
+  requiereAuthVigente,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const historial = await obtenerHistorial(req.params, req.query);
+      res.set("Cache-Control", "no-store");
+      res.status(200).json(historial);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 roomsRouter.post(
   "/rooms",
